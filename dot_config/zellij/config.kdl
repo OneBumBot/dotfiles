@@ -6,6 +6,7 @@ pane_frames false
 theme "gruvbox-dark"
 session_name "main"
 attach_to_session true
+mirror_session false
 
 ui {
     pane_frames {
@@ -18,6 +19,9 @@ default_layout "compact"
 keybinds clear-defaults=true {
     locked {
         bind "Ctrl g" { SwitchToMode "normal"; }
+        bind "Ctrl Tab" { GoToNextTab; }
+        bind "Ctrl Shift Tab" { GoToPreviousTab; }
+
     }
     pane {
         bind "left" { MoveFocus "left"; }
