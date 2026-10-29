@@ -1,0 +1,12 @@
+#!/bin/sh
+# Ensure the systemd-managed Emacs daemon is running, then connect to it.
+# Replaces `--alternate-editor=`, which would spawn a stray `emacs --daemon`
+# outside systemd and block emacs.service from binding the server socket.
+if ! systemctl --user is-active --quiet emacs.service; then
+    systemctl --user start emacs.service || exit 1
+fi
+if [ $# -gt 0 ]; then
+    exec /usr/bin/emacsclient --display="$DISPLAY" "$@"
+else
+    exec /usr/bin/emacsclient --create-frame
+fi
