@@ -84,6 +84,21 @@
 (add-hook 'compilation-filter-hook #'ansi-color-compilation-filter)
 (add-hook 'compilation-filter-hook #'ansi-osc-compilation-filter)
 
+(require 'treesit)
+
+;; Tree-sitter grammars
+(add-to-list 'treesit-language-source-alist
+             '(cpp "https://github.com/tree-sitter/tree-sitter-cpp"))
+
+;; Tree-sitter major modes
+(dolist (mode '((c-mode      . c-ts-mode)
+                (c++-mode    . c++-ts-mode)
+                (rust-mode   . rust-ts-mode)
+                (python-mode . python-ts-mode)))
+  (add-to-list 'major-mode-remap-alist mode))
+
+(setq c-ts-mode-indent-offset 4)
+
 ;; ---------------------------------------------------------------------------
 ;; Dired
 ;; ---------------------------------------------------------------------------
@@ -98,8 +113,10 @@
 ;; ---------------------------------------------------------------------------
 (use-package eglot
   :ensure nil
-  :hook ((rust-mode   . eglot-ensure)
-         (python-mode . eglot-ensure))
+  :hook ((rust-ts-mode   . eglot-ensure)
+         (python-ts-mode . eglot-ensure)
+         (c-ts-mode . eglot-ensure)
+         (c++-ts-mode . eglot-ensure))
   :bind (:map eglot-mode-map
               ("C-c r" . eglot-rename)
               ("C-c a" . eglot-code-actions)
@@ -111,15 +128,23 @@
   :config
   ;; Python: ty от Astral (uv tool install ty / pipx install ty)
   (add-to-list 'eglot-server-programs
-               '(python-mode . ("ty" "server")))
+               '(python-ts-mode . ("ty" "server")))
   ;; Rust: rust-analyzer, проверка через clippy
   (setq-default eglot-workspace-configuration
-                '(:rust-analyzer (:check (:command "clippy")))))
+                '(:rust-analyzer (:check (:command "clippy"))))
+  ;; C/C++: clangd
+  (add-to-list 'eglot-server-programs
+               '((c-ts-mode c++-ts-mode) .
+                 ("clangd" "--background-index"))))
 
 ;; Ошибки и предупреждения (Flymake встроен в Emacs)
 (with-eval-after-load 'flymake
-  (define-key flymake-mode-map (kbd "M-n") #'flymake-goto-next-error)
-  (define-key flymake-mode-map (kbd "M-p") #'flymake-goto-prev-error))
+  (define-key flymake-mode-map (kbd "M-n")
+              #'flymake-goto-next-error)
+  (define-key flymake-mode-map (kbd "M-p")
+              #'flymake-goto-prev-error)
+  (define-key flymake-mode-map (kbd "C-c e")
+              #'flymake-show-buffer-diagnostics)))
 
 (use-package corfu
   :custom
@@ -146,7 +171,19 @@
 
 ;; C-c C-c C-r: cargo run, C-c C-c C-t: cargo test, C-c C-c C-b: cargo build
 (use-package cargo
-  :hook (rust-mode . cargo-minor-mode))
+  :hook (rust-ts-mode . cargo-minor-mode))
+
+;; ---------------------------------------------------------------------------
+;; C / C++
+;; ---------------------------------------------------------------------------
+
+(use-package cc-mode
+  :ensure nil
+  :custom
+  (c-basic-offset 4)
+  (c-default-style '((c-mode . "linux")
+                     (c++-mode . "stroustrup")
+                     (other . "gnu"))))
 
 ;; ---------------------------------------------------------------------------
 ;; Python
@@ -163,6 +200,26 @@
 ;; ---------------------------------------------------------------------------
 (use-package apheleia
   :config
-  (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff))
-  (setf (alist-get 'rust-mode   apheleia-mode-alist) '(rustfmt))
+  (setf (alist-get 'python-ts-mode apheleia-mode-alist)
+        '(ruff-isort ruff))
+
+  (setf (alist-get 'rust-ts-mode   apheleia-mode-alist)
+        '(rustfmt))
+
+  ;; C / C++
+  (setf (alist-get 'c-ts-mode apheleia-mode-alist)
+        '(clang-format))
+  (setf (alist-get 'c++-ts-mode apheleia-mode-alist)
+        '(clang-format))
+
+
   (apheleia-global-mode +1))
+
+;; ---------------------------------------------------------------------------
+;; Snippets: Yasnippet
+;; ---------------------------------------------------------------------------
+
+(use-package yasnippet
+  :demand t
+  :config
+  (yas-global-mode 1))
