@@ -144,7 +144,7 @@
   (define-key flymake-mode-map (kbd "M-p")
               #'flymake-goto-prev-error)
   (define-key flymake-mode-map (kbd "C-c e")
-              #'flymake-show-buffer-diagnostics)))
+              #'flymake-show-buffer-diagnostics))
 
 (use-package corfu
   :custom
@@ -223,3 +223,111 @@
   :demand t
   :config
   (yas-global-mode 1))
+
+
+;; ===========================================================================
+;; Org-mode: личные задачи (Agenda)
+;; ===========================================================================
+
+(defvar my/org-agenda-dir
+  (expand-file-name "~/org/agenda/weeks/")
+  "Directory with weekly task files.")
+
+(defun my/org-agenda-week-file ()
+  "Return or create the file for the current ISO week."
+  (let* ((week (format-time-string "%G-W%V"))
+         (file (expand-file-name
+                (concat week ".org")
+                my/org-agenda-dir)))
+    (make-directory my/org-agenda-dir t)
+    (unless (file-exists-p file)
+      (with-temp-file file
+        (insert "#+title: " week "\n\n")))
+    file))
+
+(defun my/org-agenda-open-week ()
+  "Open the task file for the current week."
+  (interactive)
+  (find-file (my/org-agenda-week-file)))
+
+(use-package org
+  :ensure nil
+
+  :bind
+  (("C-c o a" . org-agenda)
+   ("C-c c" . org-capture)
+   ("C-c o w" . my/org-agenda-open-week))
+
+  :custom
+  (org-directory (expand-file-name "~/org/agenda/"))
+  (org-agenda-files (list my/org-agenda-dir))
+  (org-agenda-span 'week)
+  (org-agenda-start-on-weekday 1)
+  (org-log-done 'time)
+
+  ;; Personal task states
+  (org-todo-keywords
+   '((sequence "TODO(t)" "PROС(p)" "|" "DONE(d)" "FAIL(f)")))
+
+  :config
+  (setq org-capture-templates
+        '(("t" "Task" entry
+           (file+olp+datetree my/org-agenda-week-file)
+           "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n"
+           :empty-lines 1))))
+
+
+;; ---------------------------------------------------------------------------
+;; Org-roam: Zettelkasten
+;; ---------------------------------------------------------------------------
+(use-package org-roam
+  :custom
+  (org-roam-directory
+   (file-truename "~/org/wiki/"))
+  (org-roam-dailies-directory "daily/")
+
+  ;; Only titles in the completion list
+  (org-roam-node-display-template "${title:*}")
+
+  :bind
+  (("C-c n f" . org-roam-node-find)
+   ("C-c n i" . org-roam-node-insert)
+   ("C-c n l" . org-roam-buffer-toggle)
+   ("C-c n c" . org-roam-capture)
+   ("C-c n j" . org-roam-dailies-capture-today)
+   ("C-c n d" . org-roam-dailies-goto-today))
+
+  :config
+  ;; One template for all permanent notes
+  (setq org-roam-capture-templates
+        '(("z" "Zettel" plain "%?"
+           :target
+           (file+head
+            "permanent/%<%Y%m%d%H%M%S>-${slug}.org"
+            "#+title: ${title}n#+date: %<%Y-%m-%d>\n")
+           :unnarrowed t)))
+
+  ;; Temporary notes
+  (setq org-roam-dailies-capture-templates
+        '(("d" "Daily" entry "* %?"
+           :target
+           (file+head
+            "%<%Y-%m-%d>.org"
+            "#+title: %<%Y-%m-%d>\n"))))
+
+  (org-roam-db-autosync-mode))
+
+
+;; ---------------------------------------------------------------------------
+;; Org-roam-ui: visualization (optional)
+;; ---------------------------------------------------------------------------
+(use-package org-roam-ui
+  :after org-roam
+  :commands org-roam-ui-mode
+  :bind
+  (("C-c n u" . org-roam-ui-mode))
+  :custom
+  (org-roam-ui-sync-theme t)
+  (org-roam-ui-follow nil)
+  (org-roam-ui-update-on-save nil)
+  (org-roam-ui-open-on-start t))
